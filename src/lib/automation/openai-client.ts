@@ -22,6 +22,7 @@ export class OpenAIAutomationClient {
   private isInitialized = false
   private ownsBrowser = false
   private isHeadless = true
+  private lastDebugScreenshotPath?: string
 
   async initialize(options: {
     userDataDir?: string
@@ -349,6 +350,22 @@ export class OpenAIAutomationClient {
     }
   }
 
+  getLastDebugScreenshotPath(): string | undefined {
+    return this.lastDebugScreenshotPath
+  }
+
+  async captureDebugScreenshot(prefix: string): Promise<string | undefined> {
+    if (!this.page) return undefined
+    try {
+      const screenshotPath = `/tmp/${prefix}-${Date.now()}.png`
+      await this.page.screenshot({ path: screenshotPath, fullPage: true })
+      this.lastDebugScreenshotPath = screenshotPath
+      return screenshotPath
+    } catch {
+      return undefined
+    }
+  }
+
   private async isChatGPTWorkspaceModalOpen(): Promise<boolean> {
     if (!this.page) throw new Error('Client not initialized')
 
@@ -578,9 +595,12 @@ export class OpenAIAutomationClient {
 
         const workspaceOk = await this.ensureChatGPTWorkspaceSelected()
         if (!workspaceOk) {
-          const screenshotPath = `/tmp/workspace-select-failed-${Date.now()}.png`
-          await this.page.screenshot({ path: screenshotPath, fullPage: true })
-          console.log(`选择工作空间失败，截图已保存: ${screenshotPath}`)
+          const screenshotPath = await this.captureDebugScreenshot(
+            'workspace-select-failed'
+          )
+          console.log(
+            `选择工作空间失败${screenshotPath ? `，截图已保存: ${screenshotPath}` : ''}`
+          )
           return false
         }
 

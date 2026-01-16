@@ -171,7 +171,7 @@ export async function POST(
         success: true,
         count: memberCount,
         members: finalMembers,
-        message: `同步成功！成员数：${memberCount}`,
+        message: `同步成功！成员数（含账号）：${memberCount}`,
         screenshotPath,
       })
 

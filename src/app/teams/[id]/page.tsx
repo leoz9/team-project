@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,6 +71,7 @@ export default function TeamDetailPage({ params }: { params: { id: string } }) {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [emailsText, setEmailsText] = useState('')
   const [inviting, setInviting] = useState(false)
+  const lastAlertRef = useRef<{ loggedIn?: boolean; full?: boolean }>({})
 
   useEffect(() => {
     fetchTeam()
@@ -119,9 +120,28 @@ export default function TeamDetailPage({ params }: { params: { id: string } }) {
         method: 'POST',
       })
       const result = await response.json()
-      if (!result.loggedIn && result.initialized) {
+      const isLoggedIn = Boolean(result.loggedIn)
+      const isFull =
+        typeof result.seatsRemaining === 'number' && result.seatsRemaining <= 0
+
+      if (
+        lastAlertRef.current.loggedIn !== undefined &&
+        lastAlertRef.current.loggedIn === true &&
+        isLoggedIn === false &&
+        result.initialized
+      ) {
         alert(`账号登录失效：${result.message}`)
       }
+
+      if (
+        lastAlertRef.current.full !== undefined &&
+        lastAlertRef.current.full === false &&
+        isFull
+      ) {
+        alert('成员已满（5/5），无法继续邀请新成员')
+      }
+
+      lastAlertRef.current = { loggedIn: isLoggedIn, full: isFull }
       fetchTeam()
     } catch {
       // ignore background errors
@@ -135,7 +155,11 @@ export default function TeamDetailPage({ params }: { params: { id: string } }) {
         method: 'POST',
       })
       const result = await response.json()
-      alert(result.message || (response.ok ? '检测完成' : '检测失败'))
+      const memberInfo =
+        typeof result.memberCount === 'number' && typeof result.memberLimit === 'number'
+          ? `\n成员数（含账号）：${result.memberCount}/${result.memberLimit}\n可用席位：${result.seatsRemaining ?? '-'}`
+          : ''
+      alert((result.message || (response.ok ? '检测完成' : '检测失败')) + memberInfo)
       fetchTeam()
     } catch (error) {
       alert('检测失败：' + (error instanceof Error ? error.message : '未知错误'))
@@ -464,7 +488,15 @@ export default function TeamDetailPage({ params }: { params: { id: string } }) {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{team.memberCount}</div>
+            <div className="text-2xl font-bold">
+              {team.memberCount}/5
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">
+              其他成员：{Math.max(0, team.memberCount - 1)}（不含账号）
+            </div>
+            <div className="text-sm text-muted-foreground">
+              剩余席位：{Math.max(0, 5 - team.memberCount)}
+            </div>
           </CardContent>
         </Card>
 

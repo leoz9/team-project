@@ -182,8 +182,17 @@ export default function TeamsPage() {
                         ) : null}
                       </TableCell>
                       <TableCell>
-                        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600">
-                          {team.memberCount} 人
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            team.memberCount >= 5
+                              ? 'bg-red-500/10 text-red-600'
+                              : team.memberCount >= 4
+                              ? 'bg-amber-500/10 text-amber-700'
+                              : 'bg-blue-500/10 text-blue-600'
+                          }`}
+                          title="成员数（含账号）/5"
+                        >
+                          {team.memberCount}/5
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground">

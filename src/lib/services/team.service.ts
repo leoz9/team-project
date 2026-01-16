@@ -28,6 +28,10 @@ export class TeamService {
     success: boolean
     initialized: boolean
     loggedIn: boolean
+    memberCount?: number
+    memberLimit?: number
+    seatsRemaining?: number
+    memberCountExcludingOwner?: number
     message: string
     checkedAt: string
   }> {
@@ -81,12 +85,30 @@ export class TeamService {
       const loggedIn = await client.isChatGPTLoggedIn()
       const now = new Date()
 
+      const memberLimit = Number(process.env.CHATGPT_MEMBER_LIMIT || 5)
+      let memberCount: number | undefined
+      let seatsRemaining: number | undefined
+      let memberCountExcludingOwner: number | undefined
+
+      if (loggedIn) {
+        const navigated = await client.navigateToChatGPTMembers('members')
+        if (navigated) {
+          const hint = await client.getChatGPTMemberCountHint()
+          if (typeof hint === 'number' && Number.isFinite(hint)) {
+            memberCount = hint
+            memberCountExcludingOwner = Math.max(0, hint - 1)
+            seatsRemaining = Math.max(0, memberLimit - hint)
+          }
+        }
+      }
+
       await prisma.team.update({
         where: { id },
         data: {
           status: loggedIn ? 'active' : 'error',
           lastLoginCheckAt: now,
           loginError: loggedIn ? null : 'Not logged in',
+          ...(typeof memberCount === 'number' ? { memberCount } : {}),
         },
       })
 
@@ -94,6 +116,10 @@ export class TeamService {
         success: true,
         initialized: true,
         loggedIn,
+        memberCount,
+        memberLimit,
+        seatsRemaining,
+        memberCountExcludingOwner,
         message: loggedIn ? '登录状态正常' : '登录已失效，需要重新初始化登录',
         checkedAt: now.toISOString(),
       }
@@ -317,12 +343,28 @@ export class TeamService {
       console.log('步骤2: 导航到成员管理页面...')
       const navigated = await client.navigateToChatGPTMembers('members')
       if (!navigated) {
+        const screenshotPath = client.getLastDebugScreenshotPath()
         await client.close()
-        return { success: false, count: 0, message: '无法打开成员管理页面' }
+        return {
+          success: false,
+          count: 0,
+          message: `无法打开成员管理页面${screenshotPath ? `，截图: ${screenshotPath}` : ''}`,
+        }
       }
 
       console.log('步骤3: 提取成员信息...')
       const hint = await client.getChatGPTMemberCountHint()
+      if (hint === null) {
+        const screenshotPath =
+          (await client.captureDebugScreenshot('sync-members-no-count')) ||
+          client.getLastDebugScreenshotPath()
+        await client.close()
+        return {
+          success: false,
+          count: 0,
+          message: `无法读取成员数（可能未选择正确工作空间/权限不足/页面结构变化）${screenshotPath ? `，截图: ${screenshotPath}` : ''}`,
+        }
+      }
       const memberEmails = await client.getChatGPTMemberEmails({
         excludeEmail: team.email,
       })
@@ -347,8 +389,8 @@ export class TeamService {
         count: memberCount,
         message:
           typeof hint === 'number'
-            ? `同步成功！成员数：${memberCount}`
-            : `同步成功！成员数：${memberCount}（未读取到页面成员数提示）`,
+            ? `同步成功！成员数（含账号）：${memberCount}`
+            : `同步成功！成员数（含账号）：${memberCount}（未读取到页面成员数提示）`,
       }
     } catch (error) {
       console.error('Error syncing members:', error)
