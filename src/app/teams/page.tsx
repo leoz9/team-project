@@ -11,6 +11,15 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -18,7 +27,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Trash2, Edit, CheckCircle, XCircle, Users as UsersIcon } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Plus, Trash2, Edit, CheckCircle, XCircle, Users as UsersIcon, UserPlus, Loader2 } from 'lucide-react'
 
 interface Team {
   id: string
@@ -35,6 +46,9 @@ interface Team {
 export default function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
+  const [autoInviteOpen, setAutoInviteOpen] = useState(false)
+  const [autoEmailsText, setAutoEmailsText] = useState('')
+  const [autoInviting, setAutoInviting] = useState(false)
 
   useEffect(() => {
     fetchTeams()
@@ -64,6 +78,47 @@ export default function TeamsPage() {
     }
   }
 
+  const autoInvite = async () => {
+    if (!autoEmailsText.trim()) {
+      alert('请输入至少一个邮箱地址')
+      return
+    }
+
+    const emails = autoEmailsText
+      .split(/[,;\n]/)
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0)
+
+    if (emails.length === 0) {
+      alert('请输入有效的邮箱地址')
+      return
+    }
+
+    setAutoInviting(true)
+    try {
+      const response = await fetch('/api/invites/auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      })
+      const result = await response.json()
+
+      if (!response.ok) {
+        alert(result.error || '自动邀请失败')
+        return
+      }
+
+      alert(`已创建邀请任务，使用账号：${result.team?.name || result.team?.id}`)
+      setAutoInviteOpen(false)
+      setAutoEmailsText('')
+      fetchTeams()
+    } catch (error) {
+      alert('自动邀请失败：' + (error instanceof Error ? error.message : '未知错误'))
+    } finally {
+      setAutoInviting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container flex items-center justify-center min-h-[60vh]">
@@ -84,12 +139,69 @@ export default function TeamsPage() {
             管理你的 GPT 团队账号
           </p>
         </div>
-        <Link href="/teams/new">
-          <Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow">
-            <Plus className="mr-2 h-5 w-5" />
-            添加团队
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Dialog open={autoInviteOpen} onOpenChange={setAutoInviteOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="lg"
+                variant="outline"
+                className="shadow-lg hover:shadow-xl transition-shadow"
+              >
+                <UserPlus className="mr-2 h-5 w-5" />
+                自动邀请
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>自动邀请</DialogTitle>
+                <DialogDescription>
+                  自动选择有空位且创建时间更早的账号执行邀请。
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="autoEmails">邀请邮箱</Label>
+                  <Textarea
+                    id="autoEmails"
+                    placeholder="每行一个邮箱，或使用逗号/分号分隔"
+                    value={autoEmailsText}
+                    onChange={(e) => setAutoEmailsText(e.target.value)}
+                    rows={6}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setAutoInviteOpen(false)}
+                  disabled={autoInviting}
+                >
+                  取消
+                </Button>
+                <Button onClick={autoInvite} disabled={autoInviting}>
+                  {autoInviting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      创建任务中...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      开始自动邀请
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Link href="/teams/new">
+            <Button size="lg" className="shadow-lg hover:shadow-xl transition-shadow">
+              <Plus className="mr-2 h-5 w-5" />
+              添加团队
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {teams.length === 0 ? (
