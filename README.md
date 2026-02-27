@@ -27,6 +27,8 @@
 
 ```
 team-project/
+├── .github/workflows/         # GitHub Actions CI/CD
+│   └── docker-build.yml       # 自动构建多架构 Docker 镜像
 ├── prisma/
 │   ├── schema.prisma          # 数据库模型
 │   └── migrations/            # 数据库迁移文件
@@ -42,7 +44,9 @@ team-project/
 │       ├── automation/      # 浏览器自动化
 │       ├── services/        # 业务服务层
 │       └── utils/           # 工具函数（加密、验证）
-└── .env                     # 环境变量文件
+├── Dockerfile                 # 多阶段构建（内置 Chromium）
+├── docker-compose.yml         # 一键部署配置
+└── .env                       # 环境变量文件
 ```
 
 ## 快速开始
@@ -203,11 +207,52 @@ npm run dev
 - 使用无头模式减少资源占用
 - 若需要并发 2+、更高稳定性，建议使用 2c/4g 以上服务器
 
-## 部署建议（简述）
+## Docker 部署（推荐）
+
+项目已配置 GitHub Actions 自动构建多架构 Docker 镜像（amd64 + arm64），镜像内置 Chromium，开箱即用。
+
+### 使用预构建镜像
+
+```bash
+# 拉取并启动（Mac M 系列 / Intel / Linux 通用）
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+```
+
+### 本地构建
+
+```bash
+docker compose up -d --build
+```
+
+### 环境变量
+
+在 `docker-compose.yml` 中配置，或创建 `.env` 文件：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `DATABASE_URL` | SQLite 数据库路径 | `file:/app/data/dev.db` |
+| `NEXTAUTH_URL` | 应用访问地址 | `http://localhost:3000` |
+| `NEXTAUTH_SECRET` | NextAuth 密钥 | 需自行设置 |
+| `ENCRYPTION_KEY` | AES 加密密钥 | 需自行设置 |
+
+### 数据持久化
+
+数据库文件挂载到 Docker Volume `app-data`，容器重建不会丢失数据。
+
+### 镜像地址
+
+- `ghcr.io/leoz9/team-project:latest` — 最新主分支
+- `ghcr.io/leoz9/team-project:v*` — 版本标签
+
+## 部署建议
 
 - **不推荐 Serverless/边缘函数直接跑自动化**：Puppeteer/Chromium 与长任务不适合 Worker/Edge 平台。
-- 推荐：一台长期在线的服务器（VPS/自有主机）运行 Next.js 服务与自动化。
-- Linux 部署时，可能需要安装 Chromium 运行依赖；若出现启动失败，请按错误日志补齐系统依赖库。
+- 推荐使用 Docker 部署，镜像已内置 Chromium 及所有依赖，无需额外安装。
+- Mac（M1/M2/M3）和 Linux（x86）均可直接使用，无兼容性问题。
+- 若需要并发 2+、更高稳定性，建议使用 2c/4g 以上服务器。
 
 ## 开发指南
 
