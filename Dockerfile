@@ -40,7 +40,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
