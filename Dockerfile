@@ -1,16 +1,23 @@
 # Stage 1: Install dependencies
 FROM node:18-slim AS deps
 WORKDIR /app
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
 # Stage 2: Build the application
 FROM node:18-slim AS builder
 WORKDIR /app
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV NEXT_TELEMETRY_DISABLED=1
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate && npm run build
 
 # Stage 3: Production runner with Chromium for Puppeteer
@@ -20,27 +27,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     fonts-noto-cjk \
     fonts-freefont-ttf \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libnspr4 \
-    libnss3 \
-    libxss1 \
-    libxtst6 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
