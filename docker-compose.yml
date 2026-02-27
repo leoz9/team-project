@@ -1,0 +1,18 @@
+services:
+  app:
+    image: ghcr.io/leoz9/team-project:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - app-data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=change-me-in-production
+    restart: unless-stopped
+
+volumes:
+  app-data:

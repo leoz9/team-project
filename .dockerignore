@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+.env
+.env.*
+.DS_Store
+.automation-profiles
+prisma/*.db
+prisma/*.db-journal
